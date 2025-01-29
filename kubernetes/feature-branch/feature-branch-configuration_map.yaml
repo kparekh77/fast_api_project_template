@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-branch-deployment-config
+data:
+  kill_switch_config.json: |
+    {
+      "enabled": false
+    }

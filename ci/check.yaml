@@ -1,0 +1,139 @@
+---
+# Define reusable configuration snippets using anchors
+pr_failure_update: &pr_failure_update
+  put: pull-request-status
+  params:
+    path: pull-request-status
+    status: failure
+    context: pull-request-check
+
+# Define custom resource types
+resource_types:
+  - name: pull-request
+    type: docker-image
+    source:
+      repository: your-registry/your-org/github-pr-resource
+      tag: v0.1.0
+      username: _json_key
+      password: |
+        ((service_account_key))
+
+  - name: registry-image
+    type: registry-image
+    source:
+      repository: concourse/registry-image-resource
+    defaults:
+      registry_mirror:
+        host: mirror.your-registry.com
+
+# Define resources used by the pipeline
+resources:
+  - name: project-service-pr
+    type: pull-request
+    icon: github
+    webhook_token: ((webhook_token))
+    source:
+      paths:
+        - api
+      base_branch: main
+      repository: your-org/your-repo
+      access_token: ((git_access_token))
+
+# Define jobs
+jobs:
+  - name: pull-request-check
+    on_failure: *pr_failure_update
+    on_error: *pr_failure_update
+    on_abort: *pr_failure_update
+    on_success:
+      put: pull-request-status
+      params:
+        path: pull-request-status
+        status: success
+        context: pull-request-check
+    plan:
+      - get: project-service-pr
+        trigger: true
+
+      - put: pull-request-status
+        params:
+          path: pull-request-status
+          status: pending
+          context: pull-request-check
+
+      - in_parallel:
+          - task: check-formatting
+            privileged: true
+            config:
+              platform: linux
+              image_resource:
+                type: registry-image
+                source:
+                  repository: your-registry/your-org/concourse-dind
+                  tag: your-tag
+              inputs:
+                - name: project-service-pr
+                  path: project-service-pr-formatting
+              run:
+                path: entrypoint.sh
+                args:
+                  - bash
+                  - -ce
+                  - |
+                    set -e
+                    cd project-service-pr-formatting/{{api-directory}}
+    
+                    echo "Checking code formatting..."
+                    make check-format
+    
+                    echo "Code formatting check completed."
+
+          - task: check-linting
+            privileged: true
+            config:
+              platform: linux
+              image_resource:
+                type: registry-image
+                source:
+                  repository: your-registry/your-org/concourse-dind
+                  tag: your-tag
+              inputs:
+                - name: project-service-pr
+                  path: project-service-pr-linting
+              run:
+                path: entrypoint.sh
+                args:
+                  - bash
+                  - -ce
+                  - |
+                    set -e
+                    cd project-service-pr-linting/{{api0directory}}
+    
+                    echo "Checking code linting..."
+                    make check-lint
+    
+                    echo "Code linting check completed."
+
+          - task: check-tests
+            privileged: true
+            config:
+              platform: linux
+              image_resource:
+                type: registry-image
+                source:
+                  repository: your-registry/your-org/concourse-dind
+                  tag: your-tag
+              inputs:
+                - name: project-service-pr
+                  path: project-service-pr-tests
+              run:
+                path: entrypoint.sh
+                args:
+                  - bash
+                  - -ce
+                  - |
+                    cd project-service-pr-tests/{{api-director}}
+                    set -e
+                    echo "Running API tests..."
+                    make run-tests
+                    echo "tests completed successfully."

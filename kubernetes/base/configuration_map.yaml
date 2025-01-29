@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{CONFIG_MAP_NAME}}  # e.g., cc-configuration-map
+  labels:
+    app: {{APP_NAME}}-api
+data:
+  kill_switch_config.json: |
+    {
+      "featureToggle": true,
+      "maintenanceMode": false,
+      "killSwitch": false
+    }
+    

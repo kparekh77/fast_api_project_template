@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{APP_NAME}}-api
+          image: ${BACKEND_IMAGE}
+          env:
+            - name: ENVIRONMENT
+              value: "ENVIRONMENT"

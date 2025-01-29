@@ -1,0 +1,49 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}-api
+  labels:
+    app: {{APP_NAME}}-api
+spec:
+  replicas: {{REPLICAS}}
+  selector:
+    matchLabels:
+      app: {{APP_NAME}}-api
+  template:
+    metadata:
+      labels:
+        app: {{APP_NAME}}-api
+    spec:
+      serviceAccountName: {{SERVICE_ACCOUNT_NAME}}
+      containers:
+        - name: {{APP_NAME}}-api
+          image: {{BACKEND_IMAGE}}
+          imagePullPolicy: {{IMAGE_PULL_POLICY}}  # e.g., IfNotPresent, Always
+          ports:
+            - name: app
+              containerPort: {{APP_CONTAINER_PORT}}  # e.g., 8003
+            - name: metrics
+              containerPort: {{METRICS_CONTAINER_PORT}}  # e.g., 8001
+          resources:
+            limits:
+              memory: "{{MEMORY_LIMIT}}"  # e.g., "500Mi"
+            requests:
+              memory: "{{MEMORY_REQUEST}}"  # e.g., "100Mi"
+              cpu: "{{CPU_REQUEST}}"  # e.g., "100m"
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'curl -s http://localhost:{{APP_CONTAINER_PORT}}/health | python -c "import sys, json; response=json.load(sys.stdin); sys.exit(0) if response.get(\"status\") == \"OK\" else sys.exit(1)"'
+          volumeMounts:
+            - name: config-volume
+              mountPath: {{CONFIG_VOLUME_MOUNT_PATH}}  # e.g., /etc/config
+          env:
+            - name: KILL_SWITCH_CONFIG_PATH
+              value: {{KILL_SWITCH_CONFIG_PATH}}  # e.g., /etc/config/kill_switch_config.json
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{CONFIG_MAP_NAME}}  # e.g., cc-configuration-map

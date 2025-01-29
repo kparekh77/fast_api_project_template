@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:15
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      interval: 2s
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]
+    networks:
+      - expose-to-bridge
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api
+    environment:
+      ENVIRONMENT: local
+      POSTGRES_HOST: postgres
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/ready"]
+    networks:
+      - expose-to-bridge
+
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ENVIRONMENT@local.com
+      PGADMIN_DEFAULT_PASSWORD: password
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5050:80"
+    networks:
+      - expose-to-bridge
+
+networks:
+  expose-to-bridge:
+    driver: bridge
